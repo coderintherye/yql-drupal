@@ -1,0 +1,71 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * yql_autotagging.module
+ * Leverages the YQL API and autotagging modules to automatically tag nodes
+ */
+
+/** 
+ * Implementation of hook_autotagging_api_register(). 
+ */
+function yql_autotagging_api_register() {
+  return array('yql' => 'YQL');
+}
+
+function yql_autotagging_api_update(&$node, &$text) {
+  return yql_autotagging_api_insert($node, $text);
+}
+
+function yql_autotagging_api_insert(&$node, &$text) {
+  // Note that we don't need to escape the query. This is a job for the YQL engine itself.
+  // If you discover we need an additional security check though please contact me
+  $query_results = yql_query_parse('select * from search.termextract where context="' . $text . '"');
+  $vid = variable_get('autotagging_yql_vocabulary', '');
+  $global_vid = variable_get('autotagging_global_vocabulary', '');
+  for ($i = 0; $i < count($query_results); $i++) {
+    $result = $query_results[$i];
+    if ($vid == '' || $vid == '<none>') {
+      $vid = $global_vid;
+    }
+    if ($vid != '' && $vid != '<none>') {
+      if (!isset($terms[$vid])) {
+        $terms[$vid] = array();
+      }
+      $terms[$vid][] = $result;
+    }
+  }
+  return $terms;
+}
+
+/**
+ * Implementation of hook_autotagging_api_settings().
+ */
+
+function yql_autotagging_api_settings() {
+  $form_additions = array();
+  $form_additions['yql'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('YQL Settings'),
+  );
+  $form_additions['yql']['yql_usage'] = array(
+    '#title' => t('YQL Usage settings'),
+    '#description' => t('Please set the YQL module settings under Site Configuration -> YQL Settings in order to use it to generate terms.'),
+  );
+
+  $vocabs = taxonomy_get_vocabularies();
+  $vocab_options = array('<none>' => '<none>');
+  foreach ($vocabs as $id => $vocab) {
+    $vocab_options[$vocab->vid] = $vocab->name;
+  }
+
+  $form_additions['yql']['autotagging_yql_vocabulary'] = array(
+    '#type' => 'select',
+    '#title' => 'Vocabulary for YQL',
+    '#options' => $vocab_options,
+    '#default_value' => variable_get('autotagging_yql_vocabulary', ''),
+    '#description' => t('Override the default options for vocabulary assignment. Leave blank to inherit from global options.'),
+  );
+  return $form_additions;
+}

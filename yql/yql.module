@@ -1,0 +1,160 @@
+<?php
+// $Id$
+require_once 'includes/yql.admin.inc';
+include_once 'includes/yql_query_entry_form.inc';
+
+define("YQL_URL", "http://query.yahooapis.com/v1/public/yql?q=");
+
+/**
+ * The module path 
+ */
+define("YQL_MODULE_PATH", drupal_get_path('module', 'yql'));
+
+/**
+ * @file
+ * Yahoo Query Language API parser
+ * Check for valid queries, well formed, and that we have permissions
+ * Building a query takes three parameters:
+ * $format = 'json' or 'xml'
+ * $base = 'http://query.yahooapis.com/v1/public/yql
+ * $query = '?q=yql_query'
+ * The YQL Queries themselves consist of:
+ * SELECT {fields}
+ * FROM {table}
+ * WHERE {conditions}
+ * e.g., SELECT * FROM weather.forecast WHERE location=94132
+ * can also CSS query, 
+ * e.g., SELECT * FROM data.html.cssselect WHERE url="http://yahoo.com" and css="body a";
+ */
+
+/**
+ * Take a query and built it into a fully qualified URL
+ */
+
+function yql_build_query($query) {
+  if (user_access('use yql queries'))  {
+    $query = rawurlencode($query);
+    // For some reason YQL doesnt encode the * but rawurlencode does. Go figure. 
+    $query = str_replace('%2A', '*', $query);
+    $yql_url = variable_get('yql_service_url', YQL_URL);
+    $url = $yql_url . $query;
+    $results = yql_fetch_data($url);
+    if ($results) {
+      return $results;
+    }
+    else {
+      return NULL;
+    }
+  }
+  else {
+    drupal_set_message(t('You do not hav permission to use the YQL API. If you are an administrator please enable the use yql permission'));
+  }
+}
+
+/**
+ * Parse a query and try to ensure it is valid
+ * There should be at least two parameters and optional third
+ * Operation, e.g., SELECT * from
+ * Datebase and Table(s), e.g., search.termextract
+ * Conditions, e.g., where 1 = 1
+ * @TODO: Parse these pieces out separately
+ */
+ 
+function yql_query_parse($query = NULL) {
+  if ($query) {
+    if (!empty($query)) {
+      // TODO: Need some actual validation here $query_test = valid_url($query, TRUE)) {
+      return yql_build_query($query);
+    }
+    else {
+      $error = t('The Query sent was not valid. Try looking at the YQL documentation for query guidance.');
+      watchdog('yql', $error);
+      if (variable_get('yql_debug', 'FALSE')) {
+        drupal_set_message(t('@error', array('@error' => $error)), 'error');
+      }
+      return FALSE;
+    }
+  }
+  else {
+    $error = t('No query was sent to the query parser function');
+    watchdog('yql', $error);
+    if (variable_get('yql_debug', 'FALSE')) {
+      drupal_set_message(t('@error', array('@error' => $error)), 'error');
+    }
+    return FALSE;
+  }
+}
+
+/**
+ * Fetch data from the YQL URL, return xml
+ */
+
+function yql_fetch_data($query) {
+  if ($query) {
+    $results = drupal_http_request($query); 
+    if (!$results->error && $results->data) {
+      watchdog('yql', 'Successfully parsed some text from the data using YQL.');
+      $results = yql_parse_results($results->data);
+    }
+    elseif (isset($results->error)) {
+      if (variable_get('yql_debug', 'FALSE')) {
+        $errors = yql_parse_results($results->error, TRUE);
+        watchdog('yql', check_plain($errors));
+        drupal_set_message(t('YQL returned the following error: @error', array('@error' => $errors)), 'error');
+      }
+      else {
+        $error_message = t('YQL query fail. Turn on debugging mode to see the full error.');
+        watchdog('yql', $error_message);
+        drupal_set_message(t('@error_message', array('@error_message' => $error_message)), 'notice');
+      }
+      return FALSE;
+    }
+  }
+  else {
+    watchdog('yql', 'No query was sent to the fetch data function.');
+    return;
+  }
+  return $results;
+}
+
+/**
+ * Pull data from the results of a YQL Query
+ * If an error is detected we return the error instead
+ */
+
+function yql_parse_results($results, $error = FALSE) {
+  if (!$error) {
+    $yql_results = @qp($results)->find('results')->children();
+    foreach ($yql_results as $yql_result) {
+      $terms[] = $yql_result->text();
+    }
+    return $terms;
+  }
+  else {
+    if (!empty($results)) {
+      $errors .= $results;
+    }
+    else {
+      drupal_set_message("Probably an HTTP or response error. Error data returned is: " . $errors, 'error');
+    }
+    return $errors;
+  }
+}
+ 
+/** 
+ * Implementation of hook_block().
+ * Adds a block that takes the YQL results and displays them in a block.
+ */
+function yql_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('YQL Queries Console');
+      return $blocks;
+    case 'save':
+      break;
+    case 'view':
+      $block[0]['subject'] = t('YQL Query Console');
+      $block[0]['content'] = drupal_get_form('yql_query_entry_form');
+      return $block[$delta];
+  }
+}

@@ -1,0 +1,7 @@
+name = "Autotagging via YQL"
+description = "A module that leverages the YQL API and the Autotagging module to automatically tag modules based on content"
+dependencies[] = yql
+dependencies[] = autotagging
+dependencies[] = taxonomy
+package = yql
+core = 6.x

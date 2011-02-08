@@ -1,0 +1,27 @@
+Welcome to the Yahoo Query Language (YQL) API Module
+
+Module Creator: nowarninglabel <http://drupal.org/user/297478>
+
+The YQL API Module only provides a block to test YQL Queries on its own.
+It is mainly intended as a launch point for I and other developers to 
+create plugin modules that harness the YQL API. 
+
+An working example module is included with this package, yql_autotagging.
+The YQL autotagging module harnesses the power of the YQL API to provide
+term suggestions to the autotagging (http://drupal.org/project/autotagging)
+module. In this way, nodes can have taxonomy terms created automatically
+based on contextual analysis of their contents.
+
+In order to use these modules, you will first need to enable them as usual.
+For instance, go to Site Building -> Modules and check the boxes for these
+two modules. 
+
+To file an issue please visit the project page http://drupal.org/project/yql
+To get further information and a roadmap, visit
+http://www.coderintherye.com/drupal-yql-api-module
+
+Cheers,
+
+Kevin O'Brien
+nowarninglabel
+

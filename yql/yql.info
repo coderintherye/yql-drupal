@@ -1,0 +1,6 @@
+; $Id$
+name = YQL wrapper
+description = Send queries to YQL service
+package = Other
+dependencies[] = querypath
+core = 6.x
